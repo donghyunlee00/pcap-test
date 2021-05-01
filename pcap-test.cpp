@@ -3,7 +3,6 @@
 #include <netinet/tcp.h>
 #include <pcap.h>
 #include <stdio.h>
-#include <algorithm>
 
 struct Param
 {
