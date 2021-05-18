@@ -3,6 +3,7 @@
 #include <netinet/tcp.h>
 #include <pcap.h>
 #include <stdio.h>
+#include <algorithm>
 
 struct Param
 {
@@ -54,28 +55,33 @@ int main(int argc, char *argv[])
         }
 
         struct ether_header *eth_hdr = (struct ether_header *)(packet);
+
+        if (ntohs(eth_hdr->ether_type) != ETHERTYPE_IP)
+            continue;
+
         struct ip *ip_hdr = (struct ip *)(packet + sizeof(ether_header));
+
+        if (ip_hdr->ip_p != IPPROTO_TCP)
+            continue;
+
         struct tcphdr *tcp_hdr = (struct tcphdr *)(packet + sizeof(ether_header) + ip_hdr->ip_hl * 4);
 
-        if (ntohs(eth_hdr->ether_type) == ETHERTYPE_IP && ip_hdr->ip_p == IPPROTO_TCP)
-        {
-            printf("-----------------------------[START]-----------------------------\n");
-            printf("src mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth_hdr->ether_shost[0], eth_hdr->ether_shost[1], eth_hdr->ether_shost[2], eth_hdr->ether_shost[3], eth_hdr->ether_shost[4], eth_hdr->ether_shost[5]);
-            printf("dst mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth_hdr->ether_dhost[0], eth_hdr->ether_dhost[1], eth_hdr->ether_dhost[2], eth_hdr->ether_dhost[3], eth_hdr->ether_dhost[4], eth_hdr->ether_dhost[5]);
-            printf("src ip: %s\n", inet_ntoa(ip_hdr->ip_src));
-            printf("dst ip: %s\n", inet_ntoa(ip_hdr->ip_dst));
-            printf("src port: %d\n", ntohs(tcp_hdr->th_sport));
-            printf("dst port: %d\n", ntohs(tcp_hdr->th_dport));
-            printf("payload:");
-            const u_char *payload = packet + sizeof(ether_header) + ip_hdr->ip_hl * 4 + tcp_hdr->th_off * 4;
-            int len = header->caplen - sizeof(ether_header) - ip_hdr->ip_hl * 4 - tcp_hdr->th_off * 4;
-            if (len > 16)
-                len = 16;
-            for (int i = 0; i < len; i++)
-                printf(" %02x", payload[i]);
-            printf("\n");
-            printf("------------------------------[END]------------------------------\n");
-        }
+        printf("------------------------[START]------------------------\n");
+        printf("src mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth_hdr->ether_shost[0], eth_hdr->ether_shost[1], eth_hdr->ether_shost[2], eth_hdr->ether_shost[3], eth_hdr->ether_shost[4], eth_hdr->ether_shost[5]);
+        printf("dst mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth_hdr->ether_dhost[0], eth_hdr->ether_dhost[1], eth_hdr->ether_dhost[2], eth_hdr->ether_dhost[3], eth_hdr->ether_dhost[4], eth_hdr->ether_dhost[5]);
+        printf("src ip: %s\n", inet_ntoa(ip_hdr->ip_src));
+        printf("dst ip: %s\n", inet_ntoa(ip_hdr->ip_dst));
+        printf("src port: %d\n", ntohs(tcp_hdr->th_sport));
+        printf("dst port: %d\n", ntohs(tcp_hdr->th_dport));
+        printf("payload:");
+        const u_char *payload = (u_char *)tcp_hdr + tcp_hdr->th_off * 4;
+        int len = ntohs(ip_hdr->ip_len) - ip_hdr->ip_hl * 4 - tcp_hdr->th_off * 4;
+        if (len > 16)
+            len = 16;
+        for (int i = 0; i < len; i++)
+            printf(" %02x", payload[i]);
+        printf("\n");
+        printf("-------------------------[END]-------------------------\n");
     }
 
     pcap_close(pcap);
